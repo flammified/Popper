@@ -2,7 +2,8 @@ import clingo
 import time
 import pickle
 import itertools
-from . util import format_rule, prog_size, format_prog, flatten, reduce_prog, prog_is_recursive, rule_size, rule_is_recursive, order_rule
+from .util import format_rule, prog_size, format_prog, flatten, reduce_prog, prog_is_recursive, rule_size, \
+    rule_is_recursive, order_rule
 
 # for when we have a complete solution
 # same as above but no weak constraint over examples covered
@@ -27,11 +28,13 @@ FIND_SUBSET_PROG1 = """
 :- not uses_new.
 """
 
+
 def get_rule_hash(rule):
     head, body = rule
     head = (head.predicate, head.arguments)
     body = frozenset((literal.predicate, literal.arguments) for literal in body)
     return hash((head, body))
+
 
 class Combiner:
     def __init__(self, settings, tester):
@@ -74,7 +77,6 @@ class Combiner:
         # add example atoms
         self.big_encoding.add(self.example_prog)
 
-
     def build_example_encoding(self):
         example_prog = []
         for i in self.settings.pos_index:
@@ -109,14 +111,14 @@ class Combiner:
         for rule in prog:
             rule_hash = get_rule_hash(rule)
             if rule_hash not in self.rulehash_to_id:
-                k = len(self.rulehash_to_id) +1
+                k = len(self.rulehash_to_id) + 1
                 self.rulehash_to_id[rule_hash] = k
                 self.ruleid_to_rule[k] = rule
                 self.ruleid_to_size[k] = rule_size(rule)
                 # added = True
         # if not added:
-            # print('WTF!!?')
-            # exit()
+        # print('WTF!!?')
+        # exit()
 
     def add_inconsistent(self, prog):
         should_add = True
@@ -133,7 +135,6 @@ class Combiner:
         ids = [self.rulehash_to_id[k] for k in ids]
         con = ':-' + ','.join(f'rule({x})' for x in ids) + '.'
         self.big_encoding.add(con)
-
 
     def find_combination(self, encoding):
         str_encoding = '\n'.join(encoding)
@@ -155,7 +156,7 @@ class Combiner:
 
         while True:
             # with open(f'sat/{self.debug_count}', 'w') as f:
-                # f.write(str_encoding)
+            # f.write(str_encoding)
             solver = clingo.Control([])
             # with self.settings.stats.duration('combine_add_and_ground'):
             solver.add('base', [], str_encoding)
@@ -164,13 +165,13 @@ class Combiner:
             model_found = False
             model_inconsistent = False
 
-            with solver.solve(yield_ = True) as handle:
+            with solver.solve(yield_=True) as handle:
                 handle = iter(handle)
 
                 while True:
                     # FIND COMBINATION
                     # with self.settings.stats.duration('combine_solve'):
-                        # get the next model from the solver
+                    # get the next model from the solver
                     m = next(handle, None)
 
                     if m is None:
@@ -190,7 +191,7 @@ class Combiner:
                     # else:
                     #     fn = 0
 
-                    atoms = m.symbols(shown = True)
+                    atoms = m.symbols(shown=True)
                     rules = [atom.arguments[0].number for atom in atoms]
                     model_prog = [self.ruleid_to_rule[k] for k in rules]
 
@@ -231,7 +232,7 @@ class Combiner:
                     # print('subprog')
                     # for rule in smaller:
                     #     print('\t',format_rule(order_rule(rule)))
-                # break to not consider no more models as we need to take into account the new constraint
+                    # break to not consider no more models as we need to take into account the new constraint
                     break
                     break
                 # print('COMBINE TIME', self.debug_count, t2-t1)
@@ -332,11 +333,11 @@ class Combiner:
         if fn > 0:
             tp = self.tester.num_pos - fn
             self.num_covered = tp
-            self.settings.print_incomplete_solution(new_solution, tp, fn, size)
+            self.settings.print_incomplete_solution(new_solution, tp, fn, tn, fp, size)
             self.settings.best_prog_score = (tp, fn, tn, fp, size)
             return False
 
-        self.settings.print_incomplete_solution(new_solution, self.tester.num_pos, 0, size)
+        self.settings.print_incomplete_solution(new_solution, self.tester.num_pos, 0, tn, fp, size)
         self.solution_found = True
         self.max_size = size
         self.best_prog = new_solution
