@@ -1,11 +1,13 @@
 import time
 import numbers
-from . combine import Combiner
-from . explain import Explainer
-from . util import timeout, format_rule, rule_is_recursive, order_prog, prog_is_recursive, prog_has_invention, order_rule, prog_size
-from . tester import Tester
-from . generate import Generator, Grounder, parse_model, atom_to_symbol, arg_to_symbol
-from . bkcons import deduce_bk_cons
+from .combine import Combiner
+from .explain import Explainer
+from .util import timeout, format_rule, rule_is_recursive, order_prog, prog_is_recursive, prog_has_invention, \
+    order_rule, prog_size
+from .tester import Tester
+from .generate import Generator, Grounder, parse_model, atom_to_symbol, arg_to_symbol
+from .bkcons import deduce_bk_cons
+
 
 def parse_handles(generator, new_handles):
     for rule in new_handles:
@@ -17,7 +19,9 @@ def parse_handles(generator, new_handles):
             out_b = frozenset((b_pred, b_args) for _, b_pred, b_args in b)
             yield (out_h, out_b)
 
-def explain_incomplete(settings, generator, explainer, prog, directions, new_cons, all_handles, bad_handles, new_ground_cons):
+
+def explain_incomplete(settings, generator, explainer, prog, directions, new_cons, all_handles, bad_handles,
+                       new_ground_cons):
     pruned_subprog = False
 
     for subprog, unsat_body in explainer.explain_totally_incomplete(prog, directions):
@@ -49,6 +53,7 @@ def explain_incomplete(settings, generator, explainer, prog, directions, new_con
 
     return pruned_subprog
 
+
 def explain_inconsistent(settings, generator, tester, prog, rule_ordering, new_cons, all_handles):
     if len(prog) == 1 or not settings.recursion_enabled:
         return False
@@ -78,13 +83,14 @@ def explain_inconsistent(settings, generator, tester, prog, rule_ordering, new_c
 
     for r1 in base:
         for r2 in rec:
-            subprog = frozenset([r1,r2])
+            subprog = frozenset([r1, r2])
             if tester.is_inconsistent(subprog):
                 new_rule_handles, con = generator.build_generalisation_constraint(subprog)
                 new_cons.add(con)
                 all_handles.update(parse_handles(generator, new_rule_handles))
                 pruned_subprog = True
     return pruned_subprog
+
 
 def constrain(settings, new_cons, generator, all_ground_cons, cached_clingo_atoms, model, new_ground_cons):
     all_ground_cons.update(new_ground_cons)
@@ -111,6 +117,7 @@ def constrain(settings, new_cons, generator, all_ground_cons, cached_clingo_atom
                     cached_clingo_atoms[k] = x
                     nogood.append(x)
             model.context.add_nogood(nogood)
+
 
 def popper(settings):
     if settings.bkcons:
@@ -154,7 +161,7 @@ def popper(settings):
 
     max_size = (1 + settings.max_body) * settings.max_rules
 
-    for size in range(1, max_size+1):
+    for size in range(1, max_size + 1):
         if size > settings.max_literals:
             break
 
@@ -172,7 +179,7 @@ def popper(settings):
         all_handles = set()
         bad_handles = set()
 
-        with generator.solver.solve(yield_ = True) as handle:
+        with generator.solver.solve(yield_=True) as handle:
             # use iter so that we can measure running time
             handle = iter(handle)
 
@@ -189,7 +196,7 @@ def popper(settings):
                     model = next(handle, None)
                     if model is None:
                         break
-                    atoms = model.symbols(shown = True)
+                    atoms = model.symbols(shown=True)
                     prog, rule_ordering, directions = parse_model(atoms)
 
                 is_recursive = settings.recursion_enabled and prog_is_recursive(prog)
@@ -211,7 +218,9 @@ def popper(settings):
                     explainer.add_seen(prog)
                     if len(pos_covered) == 0:
                         with settings.stats.duration('find mucs'):
-                            pruned_sub_incomplete = explain_incomplete(settings, generator, explainer, prog, directions, new_cons, all_handles, bad_handles, new_ground_cons)
+                            pruned_sub_incomplete = explain_incomplete(settings, generator, explainer, prog, directions,
+                                                                       new_cons, all_handles, bad_handles,
+                                                                       new_ground_cons)
 
                 if inconsistent and is_recursive:
                     combiner.add_inconsistent(prog)
@@ -235,13 +244,15 @@ def popper(settings):
                     add_gen = True
                     if settings.recursion_enabled:
                         with settings.stats.duration('find sub inconsistent'):
-                            pruned_sub_inconsistent = explain_inconsistent(settings, generator, tester, prog, rule_ordering, new_cons, all_handles)
+                            pruned_sub_inconsistent = explain_inconsistent(settings, generator, tester, prog,
+                                                                           rule_ordering, new_cons, all_handles)
                 else:
                     # if consistent, prune specialisations
                     add_spec = True
 
                 # if consistent and partially complete test whether functional
-                if not inconsistent and settings.functional_test and num_pos_covered > 0 and tester.is_non_functional(prog):
+                if not inconsistent and settings.functional_test and num_pos_covered > 0 and tester.is_non_functional(
+                        prog):
                     # if not functional, rule out generalisations and set as inconsistent
                     add_gen = True
                     # v.important: do not prune specialisations!
@@ -277,7 +288,7 @@ def popper(settings):
                 if settings.recursion_enabled and len(prog) > 2 and tester.has_redundant_rule(prog):
                     add_gen = True
                     r1, r2 = tester.find_redundant_rules(prog)
-                    new_handles, con = generator.build_generalisation_constraint([r1,r2])
+                    new_handles, con = generator.build_generalisation_constraint([r1, r2])
                     new_cons.add(con)
                     all_handles.update(parse_handles(generator, new_handles))
 
@@ -286,7 +297,7 @@ def popper(settings):
 
                 # WHY DO WE HAVE A RECURSIVE CHECK???
                 if num_pos_covered > 0 and not is_recursive:
-                # if num_pos_covered > 0:
+                    # if num_pos_covered > 0:
                     subsumed = pos_covered in success_sets or any(pos_covered.issubset(xs) for xs in success_sets)
                     # if so, prune specialisations
                     if subsumed:
@@ -343,7 +354,8 @@ def popper(settings):
 
                 seen_better_rec = False
                 if is_recursive and not inconsistent and not subsumed and not add_gen and num_pos_covered > 0:
-                    seen_better_rec = pos_covered in rec_success_sets or any(pos_covered.issubset(xs) for xs in rec_success_sets)
+                    seen_better_rec = pos_covered in rec_success_sets or any(
+                        pos_covered.issubset(xs) for xs in rec_success_sets)
 
                 # if consistent, covers at least one example, is not subsumed, and has no redundancy, try to find a solution
                 # if not inconsistent and not subsumed and not add_gen and num_pos_covered > 0:
@@ -358,16 +370,21 @@ def popper(settings):
                     with settings.stats.duration('combine'):
                         new_solution_found = combiner.update_best_prog(prog, pos_covered)
 
+                        if settings.break_on_first_solution and (new_solution_found == 1 or new_solution_found == 2):
+                            break
+
+                        new_solution_found = True if new_solution_found == 2 else False
+
                     # if we find a new solution, update the maximum program size
                     # if only adding nogoods, eliminate larger programs
                     if new_solution_found:
-                        settings.max_literals = combiner.max_size-1
+                        settings.max_literals = combiner.max_size - 1
                         if size >= settings.max_literals:
                             return
 
                         if settings.single_solve:
                             # AC: sometimes adding these size constraints can take longer
-                            for i in range(combiner.max_size, max_size+1):
+                            for i in range(combiner.max_size, max_size + 1):
                                 # print('mooo', i)
                                 size_con = [(atom_to_symbol("size", (i,)), True)]
                                 model.context.add_nogood(size_con)
@@ -410,6 +427,7 @@ def popper(settings):
         if settings.single_solve:
             break
 
+
 def learn_solution(settings):
-    timeout(settings, popper, (settings,), timeout_duration=int(settings.timeout),)
+    timeout(settings, popper, (settings,), timeout_duration=int(settings.timeout), )
     return settings.solution, settings.best_prog_score, settings.stats

@@ -1,13 +1,16 @@
+import argparse
+import json
+import logging
+import os
+import signal
+import time
+from contextlib import contextmanager
 from pathlib import Path
+from time import perf_counter
 
 import clingo
 import clingo.script
-import signal
-import argparse
-import os
-import logging
-from time import perf_counter
-from contextlib import contextmanager
+
 from .core import Literal
 
 clingo.script.enable_python()
@@ -154,6 +157,11 @@ def format_rule(rule):
     return f'{head_str}:- {body_str}.'
 
 
+def rule_to_list_of_functions(rule):
+    _, body = rule
+    return [literal.predicate for literal in body]
+
+
 def print_prog_score(prog, score):
     tp, fn, tn, fp, size = score
     precision = 'n/a'
@@ -162,13 +170,14 @@ def print_prog_score(prog, score):
     recall = 'n/a'
     if (tp + fn) > 0:
         recall = f'{tp / (tp + fn):0.2f}'
-    res = '*' * 10 + ' SOLUTION ' + '*' * 10 + "\n"
-    res += f'Precision:{precision} Recall:{recall} TP:{tp} FN:{fn} TN:{tn} FP:{fp} Size:{size} \n'
-    res += format_prog(order_prog(prog))
-    res += "\n"
-    res += '*' * 30
 
-    return res
+    result = {
+        'type': 'solution',
+        'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size, 'prog': rule_to_list_of_functions(order_prog(prog)[-1]),
+        'precision': precision, 'recall': recall
+    }
+
+    return result
 
 
 def prog_size(prog):
@@ -325,6 +334,7 @@ class Settings:
                  max_literals=MAX_LITERALS, timeout=TIMEOUT, quiet=False, eval_timeout=EVAL_TIMEOUT,
                  max_examples=MAX_EXAMPLES, max_body=MAX_BODY, max_rules=MAX_RULES, max_vars=MAX_VARS,
                  functional_test=False, kbpath=False, ex_file=False, bk_file=False, bias_file=False, datalog=False,
+                 break_on_first_solution=False, time_at_start=time.time(),
                  log_file=None):
 
         if cmd_line:
@@ -343,6 +353,7 @@ class Settings:
             max_rules = args.max_rules
             functional_test = args.functional_test
             datalog = args.datalog
+            break_on_first_solution = args.break_on_first_solution
         else:
             if kbpath:
                 self.bk_file, self.ex_file, self.bias_file = load_kbpath(kbpath)
@@ -379,13 +390,17 @@ class Settings:
         self.max_vars = max_vars
         self.max_rules = max_rules
         self.log_file = log_file
+        self.break_on_first_solution = break_on_first_solution
+        self.time_at_start = time_at_start
 
         self.solution = None
         self.best_prog_score = None
 
         solver = clingo.Control(['-Wnone'])
         with open(self.bias_file) as f:
-            solver.add('bias', [], f.read())
+            t = f.read()
+            solver.add('bias', [], t)
+            print(t)
         solver.add('bias', [], """
             #defined body_literal/4.
             #defined clause/1.
@@ -435,14 +450,26 @@ class Settings:
         self.logger.info('*' * 20)
         self.logger.info('New best hypothesis:')
         self.logger.info(f'tp:{tp} fn:{fn} tn:{tn} fp:{fp} size:{size}')
+        precision = 'n/a'
+        if (tp + fp) > 0:
+            precision = f'{tp / (tp + fp):0.2f}'
+        recall = 'n/a'
+        if (tp + fn) > 0:
+            recall = f'{tp / (tp + fn):0.2f}'
         for rule in order_prog(prog):
             self.logger.info(format_rule(order_rule(rule)))
         self.logger.info('*' * 20)
 
         with Path(self.log_file).open('a') as file_handle:
-            file_handle.write(("*" * 20) + "\n")
-            file_handle.write(f'tp:{tp} fn:{fn} tn:{tn} fp:{fp} size:{size}\n')
-            for rule in order_prog(prog):
-                file_handle.write(format_rule(order_rule(rule)))
-                file_handle.write("\n")
-            file_handle.write(("*" * 20) + "\n")
+            result = {
+                'time': time.time(),
+                'time_since_start': time.time() - self.time_at_start,
+                'type': 'incomplete',
+                'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size,
+                'prog': rule_to_list_of_functions(order_prog(prog)[-1]),
+                "recall": float(recall) if recall != 'n/a' else -1,
+                "precision": float(precision) if precision != 'n/a' else -1
+            }
+
+            file_handle.write(json.dumps(result))
+            file_handle.write("\n")

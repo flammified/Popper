@@ -315,13 +315,13 @@ class Combiner:
         if not self.solution_found and pos_covered.issubset(self.pos_covered):
             # self.skip_count += 1
             # print('skip_count', self.skip_count)
-            return False
+            return 0
         new_solution, fn = self.select_solution()
         # TMP!!!
         self.to_add = []
 
         if len(new_solution) == 0:
-            return False
+            return 0
 
         new_solution = reduce_prog(new_solution)
         self.settings.solution = new_solution
@@ -335,11 +335,11 @@ class Combiner:
             self.num_covered = tp
             self.settings.print_incomplete_solution(new_solution, tp, fn, tn, fp, size)
             self.settings.best_prog_score = (tp, fn, tn, fp, size)
-            return False
+            return 1
 
         self.settings.print_incomplete_solution(new_solution, self.tester.num_pos, 0, tn, fp, size)
         self.solution_found = True
         self.max_size = size
         self.best_prog = new_solution
         self.settings.best_prog_score = (self.tester.num_pos, 0, tn, fp, size)
-        return True
+        return 2
