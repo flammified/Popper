@@ -162,6 +162,11 @@ def rule_to_list_of_functions(rule):
     return [literal.predicate for literal in body]
 
 
+def rule_to_list_of_arguments(rule):
+    _, body = rule
+    return [list(literal.arguments) for literal in body]
+
+
 def print_prog_score(prog, score):
     tp, fn, tn, fp, size = score
     precision = 'n/a'
@@ -173,8 +178,11 @@ def print_prog_score(prog, score):
 
     result = {
         'type': 'solution',
-        'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size, 'prog': rule_to_list_of_functions(order_prog(prog)[-1]),
-        'precision': precision, 'recall': recall
+        'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size,
+        'vars': rule_to_list_of_arguments(order_prog(prog)[-1]),
+        'prog': rule_to_list_of_functions(order_prog(prog)[-1]),
+        "recall": float(recall) if recall != 'n/a' else -1,
+        "precision": float(precision) if precision != 'n/a' else -1
     }
 
     return result
@@ -372,7 +380,6 @@ class Settings:
         elif info:
             log_level = logging.INFO
             logging.basicConfig(format='%(asctime)s %(message)s', level=log_level, datefmt='%H:%M:%S')
-            print("YEETI")
 
         self.info = info
         self.debug = debug
@@ -400,7 +407,6 @@ class Settings:
         with open(self.bias_file) as f:
             t = f.read()
             solver.add('bias', [], t)
-            print(t)
         solver.add('bias', [], """
             #defined body_literal/4.
             #defined clause/1.
@@ -466,6 +472,8 @@ class Settings:
                 'time_since_start': time.time() - self.time_at_start,
                 'type': 'incomplete',
                 'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size,
+
+                'vars': rule_to_list_of_arguments(order_prog(prog)[-1]),
                 'prog': rule_to_list_of_functions(order_prog(prog)[-1]),
                 "recall": float(recall) if recall != 'n/a' else -1,
                 "precision": float(precision) if precision != 'n/a' else -1
