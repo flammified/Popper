@@ -466,6 +466,11 @@ class Settings:
             self.logger.info(format_rule(order_rule(rule)))
         self.logger.info('*' * 20)
 
+        t = ""
+        for rule in order_prog(prog):
+            t += (format_rule(order_rule(rule)))
+            t += "\n"
+
         with Path(self.log_file).open('a') as file_handle:
             result = {
                 'time': time.time(),
@@ -474,7 +479,8 @@ class Settings:
                 'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size,
 
                 'vars': rule_to_list_of_arguments(order_prog(prog)[-1]),
-                'prog': rule_to_list_of_functions(order_prog(prog)[-1]),
+                'prog': [rule_to_list_of_functions(a) for a in order_prog(prog)],
+                'raw': t,
                 "recall": float(recall) if recall != 'n/a' else -1,
                 "precision": float(precision) if precision != 'n/a' else -1
             }
