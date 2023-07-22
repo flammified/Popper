@@ -179,8 +179,8 @@ def print_prog_score(prog, score):
     result = {
         'type': 'solution',
         'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size,
-        'vars': rule_to_list_of_arguments(order_prog(prog)[-1]),
-        'prog': rule_to_list_of_functions(order_prog(prog)[-1]),
+        'vars': [rule_to_list_of_arguments(a) for a in order_prog(prog)],
+        'prog': [rule_to_list_of_functions(a) for a in order_prog(prog)],
         "recall": float(recall) if recall != 'n/a' else -1,
         "precision": float(precision) if precision != 'n/a' else -1
     }
