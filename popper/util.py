@@ -478,7 +478,7 @@ class Settings:
                 'type': 'incomplete',
                 'tp': tp, 'fn': fn, 'tn': tn, 'fp': fp, 'size': size,
 
-                'vars': rule_to_list_of_arguments(order_prog(prog)[-1]),
+                'vars': [rule_to_list_of_arguments(a) for a in order_prog(prog)],
                 'prog': [rule_to_list_of_functions(a) for a in order_prog(prog)],
                 'raw': t,
                 "recall": float(recall) if recall != 'n/a' else -1,
